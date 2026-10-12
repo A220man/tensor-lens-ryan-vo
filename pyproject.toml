@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tensor-lens-ryan-vo"
+version = "1.0.0"
+description = "Layer-streaming inference optimizer and memory profiler enabling large language model execution on memory-constrained GPUs"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "Ryan Vo", email = "ryandtvo@gmail.com" }
+]
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.31.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "sqlalchemy>=2.0.35",
+    "httpx>=0.27.2",
+    "python-jose[cryptography]>=3.3.0",
+    "numpy>=1.26.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+]

@@ -1,0 +1,71 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.6
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep '200 OK' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8000"
+      ENVIRONMENT: development
+      DEMO_MODE: "true"
+      DATABASE_URL: "sqlite:////app/data/tensor_lens.db"
+      OIDC_ISSUER_URL: "http://127.0.0.1:8080/realms/tensor-lens"
+      OIDC_CLIENT_ID: "tensor-lens-client"
+      OIDC_CLIENT_SECRET: ""
+      OIDC_AUDIENCE: "tensor-lens-client"
+      LLM_PROVIDER: "openai-compatible"
+      LLM_MODEL: "gpt-4o-mini"
+      LLM_BASE_URL: ""
+      LLM_API_KEY: ""
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - backend-data:/app/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:5173:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  keycloak-data:
+  backend-data:
