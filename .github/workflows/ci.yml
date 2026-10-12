@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run backend tests
+        env:
+          DATABASE_URL: "sqlite:///:memory:"
+          DEMO_MODE: "true"
+          ENVIRONMENT: "development"
+        run: |
+          export PYTHONPATH=backend
+          pytest backend/tests -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test -- --run
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: tensor-lens-backend:latest
+
+      - name: Build Frontend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: tensor-lens-frontend:latest

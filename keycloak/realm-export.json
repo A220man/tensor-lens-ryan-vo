@@ -1,0 +1,57 @@
+{
+  "id": "tensor-lens",
+  "realm": "tensor-lens",
+  "enabled": true,
+  "displayName": "TensorLens Auth Realm",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "clients": [
+    {
+      "clientId": "tensor-lens-client",
+      "name": "TensorLens SPA Client",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://127.0.0.1:5173/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://127.0.0.1:5173/*"
+      }
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "viewer", "description": "Read-only viewer role" },
+      { "name": "analyst", "description": "Model optimization operator/analyst role" },
+      { "name": "admin", "description": "Administrator role" }
+    ]
+  },
+  "identityProviders": [
+    {
+      "alias": "enterprise-saml",
+      "displayName": "Enterprise SAML Broker",
+      "providerId": "saml",
+      "enabled": false,
+      "config": {
+        "entityId": "http://127.0.0.1:8080/realms/tensor-lens",
+        "idpEntityId": "https://idp.example.com/saml/metadata",
+        "singleSignOnServiceUrl": "https://idp.example.com/saml/sso",
+        "nameIDPolicyFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "name": "tensor-lens-ryan-vo",
+  "owner": "A220man",
+  "email": "ryandtvo@gmail.com",
+  "domain": "AI/ML developer tools",
+  "workflows": [
+    "Layer-by-layer transformer execution and dynamic N-layer VRAM batching optimization",
+    "Hardware-aware memory profiling and quantization planner for low-VRAM inference",
+    "Hugging Face transformers runtime compatibility diagnostics and patch generation"
+  ],
+  "auth": "oidc-keycloak-saml-broker",
+  "llm_providers": [
+    "openai-compatible",
+    "anthropic",
+    "gemini",
+    "ollama"
+  ],
+  "summary": "Work in progress: tensor-lens-ryan-vo",
+  "status": "work-in-progress"
+}
