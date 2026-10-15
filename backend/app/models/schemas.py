@@ -29,9 +29,6 @@ class HardwareProfileResponse(HardwareProfileBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class ModelSpecBase(BaseSchema):
     name: str = Field(..., min_length=2, max_length=128)
@@ -54,9 +51,6 @@ class ModelSpecCreate(ModelSpecBase):
 class ModelSpecResponse(ModelSpecBase):
     id: str
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class PlanCalculateRequest(BaseSchema):
@@ -86,9 +80,6 @@ class InferencePlanResponse(BaseSchema):
     est_generation_sec: float
     est_tokens_per_sec: float
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class BenchmarkRunRequest(BaseSchema):
@@ -169,6 +160,33 @@ class CompatibilityAuditResponse(BaseSchema):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class PatchVerificationRequest(BaseSchema):
+    patch_code: Optional[str] = None
+    model_name: str = "Meta-Llama-3-70B-Instruct"
+    transformers_version: str = "4.45.2"
+    head_dim: int = 128
+    rotary_dim: int = 128
+    target_device: str = "cuda"
+
+
+class PatchVerificationTestItem(BaseSchema):
+    name: str
+    passed: bool
+    category: str
+    detail: str
+
+
+class PatchVerificationResponse(BaseSchema):
+    id: str
+    target_model: str
+    all_passed: bool
+    total_tests: int
+    passed_tests: int
+    failed_tests: int
+    results: List[PatchVerificationTestItem]
+    verified_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class AdvisorAnalysisRequest(BaseSchema):
     benchmark_id: Optional[str] = None
     plan_id: Optional[str] = None
@@ -193,9 +211,6 @@ class AuditLogResponse(BaseSchema):
     resource: str
     details: str
     timestamp: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class UserInfoResponse(BaseSchema):

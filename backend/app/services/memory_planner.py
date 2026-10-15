@@ -42,11 +42,7 @@ class MemoryPlanner:
         kv_params = 2 * model.hidden_dim * (model.num_kv_heads * head_dim)
         o_params = (model.num_heads * head_dim) * model.hidden_dim
         mlp_params = 3 * model.hidden_dim * model.intermediate_dim
-        norm_params = 2 * model.hidden_dim
-
-        per_layer_params = q_params + kv_params + o_params + ml_params if False else (
-            q_params + kv_params + o_params + mlp_params + norm_params
-        )
+        per_layer_params = q_params + kv_params + o_params + mlp_params + norm_params
 
         non_layer_params = 2 * model.vocab_size * model.hidden_dim  # embed_tokens + lm_head
         total_params = non_layer_params + (per_layer_params * model.num_layers)
