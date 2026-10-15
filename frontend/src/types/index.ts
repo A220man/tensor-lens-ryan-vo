@@ -132,3 +132,31 @@ export interface UserInfo {
   roles: string[];
   is_demo: boolean;
 }
+
+export interface PatchVerificationTestItem {
+  name: string;
+  passed: boolean;
+  category: string;
+  detail: string;
+}
+
+export interface PatchVerificationResponse {
+  id: string;
+  target_model: string;
+  all_passed: boolean;
+  total_tests: number;
+  passed_tests: number;
+  failed_tests: number;
+  results: PatchVerificationTestItem[];
+  verified_at: string;
+}
+
+export interface PatchVerificationRequest {
+  patch_code?: string;
+  model_name: string;
+  transformers_version: string;
+  head_dim: number;
+  rotary_dim: number;
+  target_device: string;
+}
+

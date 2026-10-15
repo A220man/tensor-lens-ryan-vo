@@ -5,6 +5,8 @@ import {
   BenchmarkSimulation,
   BenchmarkRun,
   CompatibilityAudit,
+  PatchVerificationResponse,
+  PatchVerificationRequest,
   AdvisorAnalysis,
   AuditLog,
   UserInfo,
@@ -146,6 +148,12 @@ export const api = {
     rotary_dim: number;
   }) =>
     request<CompatibilityAudit>('/api/compatibility/audit', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
+  verifyPatch: (params: PatchVerificationRequest) =>
+    request<PatchVerificationResponse>('/api/compatibility/verify', {
       method: 'POST',
       body: JSON.stringify(params),
     }),

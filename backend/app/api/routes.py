@@ -28,6 +28,8 @@ from app.models.schemas import (
     BenchmarkStreamSimulationResponse,
     CompatibilityAuditRequest,
     CompatibilityAuditResponse,
+    PatchVerificationRequest,
+    PatchVerificationResponse,
     AdvisorAnalysisRequest,
     AdvisorAnalysisResponse,
     AuditLogResponse,
@@ -112,34 +114,17 @@ def create_hardware(
 ) -> HardwareProfileResponse:
     """Create a new custom hardware profile (analyst/admin only)."""
     hw_id = req.id or f"hw-{int(time.time() * 1000)}"
-    existing = db.query(HardwareProfileRecord).filter(HardwareProfileRecord.id == hw_id).first()
-    if existing:
+    if db.query(HardwareProfileRecord).filter(HardwareProfileRecord.id == hw_id).first():
         raise HTTPException(status_code=400, detail="Hardware profile ID already exists")
 
-    new_hw = HardwareProfileRecord(
-        id=hw_id,
-        name=req.name,
-        category=req.category,
-        vram_gb=req.vram_gb,
-        memory_bandwidth_gbps=req.memory_bandwidth_gbps,
-        pcie_gen=req.pcie_gen,
-        pcie_lanes=req.pcie_lanes,
-        pcie_bandwidth_gbps=req.pcie_bandwidth_gbps,
-        system_ram_gb=req.system_ram_gb,
-        disk_read_mbps=req.disk_read_mbps,
-        compute_tflops_fp16=req.compute_tflops_fp16,
-    )
+    new_hw = HardwareProfileRecord(id=hw_id, **req.model_dump(exclude={"id"}))
     db.add(new_hw)
     db.commit()
     db.refresh(new_hw)
 
     log_audit_action(
-        db,
-        user_id=current_user.sub,
-        role=current_user.roles[0] if current_user.roles else "user",
-        action="CREATE_HARDWARE",
-        resource=hw_id,
-        details=f"Created hardware profile {req.name} ({req.vram_gb} GB VRAM)"
+        db, user_id=current_user.sub, role=current_user.roles[0] if current_user.roles else "user",
+        action="CREATE_HARDWARE", resource=hw_id, details=f"Created hardware profile {req.name} ({req.vram_gb} GB VRAM)"
     )
     return new_hw
 
@@ -175,35 +160,17 @@ def create_model(
 ) -> ModelSpecResponse:
     """Register custom model architecture (analyst/admin only)."""
     m_id = req.id or f"model-{int(time.time() * 1000)}"
-    existing = db.query(ModelSpecRecord).filter(ModelSpecRecord.id == m_id).first()
-    if existing:
+    if db.query(ModelSpecRecord).filter(ModelSpecRecord.id == m_id).first():
         raise HTTPException(status_code=400, detail="Model ID already exists")
 
-    new_model = ModelSpecRecord(
-        id=m_id,
-        name=req.name,
-        family=req.family,
-        parameter_count_billion=req.parameter_count_billion,
-        hidden_dim=req.hidden_dim,
-        num_layers=req.num_layers,
-        num_heads=req.num_heads,
-        num_kv_heads=req.num_kv_heads,
-        vocab_size=req.vocab_size,
-        max_seq_length=req.max_seq_length,
-        intermediate_dim=req.intermediate_dim,
-        default_dtype=req.default_dtype,
-    )
+    new_model = ModelSpecRecord(id=m_id, **req.model_dump(exclude={"id"}))
     db.add(new_model)
     db.commit()
     db.refresh(new_model)
 
     log_audit_action(
-        db,
-        user_id=current_user.sub,
-        role=current_user.roles[0] if current_user.roles else "user",
-        action="CREATE_MODEL",
-        resource=m_id,
-        details=f"Registered model {req.name} ({req.parameter_count_billion}B params)"
+        db, user_id=current_user.sub, role=current_user.roles[0] if current_user.roles else "user",
+        action="CREATE_MODEL", resource=m_id, details=f"Registered model {req.name} ({req.parameter_count_billion}B params)"
     )
     return new_model
 
@@ -238,33 +205,16 @@ def calculate_plan(
 
     plan_id = f"plan-{int(time.time() * 1000)}"
     plan_record = InferencePlanRecord(
-        id=plan_id,
-        model_id=model.id,
-        hardware_id=hardware.id,
-        quantization=req.quantization,
-        batch_size=req.batch_size,
-        seq_len=req.seq_len,
-        layers_per_chunk=plan_metrics["layers_per_chunk"],
-        total_chunks=plan_metrics["total_chunks"],
-        param_vram_mb=plan_metrics["param_vram_mb"],
-        activation_vram_mb=plan_metrics["activation_vram_mb"],
-        kv_cache_vram_mb=plan_metrics["kv_cache_vram_mb"],
-        total_vram_mb=plan_metrics["total_vram_mb"],
-        vram_utilization_percent=plan_metrics["vram_utilization_percent"],
-        est_prefill_sec=plan_metrics["est_prefill_sec"],
-        est_generation_sec=plan_metrics["est_generation_sec"],
-        est_tokens_per_sec=plan_metrics["est_tokens_per_sec"],
+        id=plan_id, model_id=model.id, hardware_id=hardware.id, quantization=req.quantization,
+        batch_size=req.batch_size, seq_len=req.seq_len, **plan_metrics
     )
     db.add(plan_record)
     db.commit()
     db.refresh(plan_record)
 
     log_audit_action(
-        db,
-        user_id=current_user.sub,
-        role=current_user.roles[0] if current_user.roles else "user",
-        action="CALCULATE_PLAN",
-        resource=plan_id,
+        db, user_id=current_user.sub, role=current_user.roles[0] if current_user.roles else "user",
+        action="CALCULATE_PLAN", resource=plan_id,
         details=f"Calculated plan for {model.name} on {hardware.name} ({plan_metrics['layers_per_chunk']} layers/chunk)"
     )
     return plan_record
@@ -339,20 +289,11 @@ def record_benchmark_run(
 
     b_id = f"bench-{int(time.time() * 1000)}"
     bench_record = BenchmarkRunRecord(
-        id=b_id,
-        model_id=model.id,
-        hardware_id=hardware.id,
-        quantization=req.quantization,
-        layers_per_chunk=req.layers_per_chunk,
-        prompt_tokens=req.prompt_tokens,
-        output_tokens=req.output_tokens,
-        total_time_ms=round(total_time_ms, 2),
-        tokens_per_sec=sim.final_tokens_per_sec,
-        peak_vram_mb=sim.peak_vram_mb,
-        disk_read_time_ms=round(disk_total_ms, 2),
-        pcie_transfer_time_ms=round(pcie_total_ms, 2),
-        compute_time_ms=round(compute_total_ms, 2),
-        status="completed",
+        id=b_id, model_id=model.id, hardware_id=hardware.id, quantization=req.quantization,
+        layers_per_chunk=req.layers_per_chunk, prompt_tokens=req.prompt_tokens, output_tokens=req.output_tokens,
+        total_time_ms=round(total_time_ms, 2), tokens_per_sec=sim.final_tokens_per_sec, peak_vram_mb=sim.peak_vram_mb,
+        disk_read_time_ms=round(disk_total_ms, 2), pcie_transfer_time_ms=round(pcie_total_ms, 2),
+        compute_time_ms=round(compute_total_ms, 2), status="completed",
         notes=f"Simulated execution across {sim.chunks_count} chunks with numerical check {sim.numerical_check_passed}",
     )
     db.add(bench_record)
@@ -360,12 +301,8 @@ def record_benchmark_run(
     db.refresh(bench_record)
 
     log_audit_action(
-        db,
-        user_id=current_user.sub,
-        role=current_user.roles[0] if current_user.roles else "user",
-        action="RUN_BENCHMARK",
-        resource=b_id,
-        details=f"Executed benchmark run for {model.name} ({sim.final_tokens_per_sec} tok/s)"
+        db, user_id=current_user.sub, role=current_user.roles[0] if current_user.roles else "user",
+        action="RUN_BENCHMARK", resource=b_id, details=f"Executed benchmark run for {model.name} ({sim.final_tokens_per_sec} tok/s)"
     )
     return bench_record
 
@@ -395,49 +332,17 @@ def export_benchmarks(
 ) -> Response:
     """Export benchmark runs in JSON or CSV format."""
     runs = db.query(BenchmarkRunRecord).order_by(BenchmarkRunRecord.created_at.desc()).all()
-    
     if format == "csv":
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow([
-            "id", "model_id", "hardware_id", "quantization", "layers_per_chunk",
-            "prompt_tokens", "output_tokens", "total_time_ms", "tokens_per_sec",
-            "peak_vram_mb", "disk_read_ms", "pcie_transfer_ms", "compute_ms", "created_at"
-        ])
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["id", "model_id", "hardware_id", "quantization", "layers_per_chunk", "prompt_tokens", "output_tokens", "total_time_ms", "tokens_per_sec", "peak_vram_mb", "disk_read_ms", "pcie_transfer_ms", "compute_ms", "created_at"])
         for r in runs:
-            writer.writerow([
-                r.id, r.model_id, r.hardware_id, r.quantization, r.layers_per_chunk,
-                r.prompt_tokens, r.output_tokens, r.total_time_ms, r.tokens_per_sec,
-                r.peak_vram_mb, r.disk_read_time_ms, r.pcie_transfer_time_ms, r.compute_time_ms,
-                r.created_at.isoformat()
-            ])
-        return Response(
-            content=output.getvalue(),
-            media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=tensor_lens_benchmarks.csv"}
-        )
+            w.writerow([r.id, r.model_id, r.hardware_id, r.quantization, r.layers_per_chunk, r.prompt_tokens, r.output_tokens, r.total_time_ms, r.tokens_per_sec, r.peak_vram_mb, r.disk_read_time_ms, r.pcie_transfer_time_ms, r.compute_time_ms, r.created_at.isoformat()])
+        return Response(content=out.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=tensor_lens_benchmarks.csv"})
 
-    # JSON export
     import json
-    data = [
-        {
-            "id": r.id,
-            "model_id": r.model_id,
-            "hardware_id": r.hardware_id,
-            "quantization": r.quantization,
-            "layers_per_chunk": r.layers_per_chunk,
-            "tokens_per_sec": r.tokens_per_sec,
-            "peak_vram_mb": r.peak_vram_mb,
-            "total_time_ms": r.total_time_ms,
-            "created_at": r.created_at.isoformat()
-        }
-        for r in runs
-    ]
-    return Response(
-        content=json.dumps(data, indent=2),
-        media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=tensor_lens_benchmarks.json"}
-    )
+    data = [{"id": r.id, "model_id": r.model_id, "hardware_id": r.hardware_id, "quantization": r.quantization, "layers_per_chunk": r.layers_per_chunk, "tokens_per_sec": r.tokens_per_sec, "peak_vram_mb": r.peak_vram_mb, "total_time_ms": r.total_time_ms, "created_at": r.created_at.isoformat()} for r in runs]
+    return Response(content=json.dumps(data, indent=2), media_type="application/json", headers={"Content-Disposition": "attachment; filename=tensor_lens_benchmarks.json"})
 
 
 # --- Compatibility Diagnostics ---
@@ -459,6 +364,32 @@ def audit_compatibility(
         rotary_dim=req.rotary_dim,
     )
     resp.created_at = datetime.now(timezone.utc)
+    return resp
+
+
+@api_router.post("/compatibility/verify", response_model=PatchVerificationResponse)
+def verify_compatibility_patch(
+    req: PatchVerificationRequest,
+    db: Session = Depends(get_db),
+    current_user: UserPrincipal = Depends(get_current_user)
+) -> PatchVerificationResponse:
+    """Run automated verification test suite on patched model definitions and shims."""
+    resp = CompatibilityChecker.run_verification_suite(
+        model_name=req.model_name,
+        transformers_version=req.transformers_version,
+        target_device=req.target_device,
+        head_dim=req.head_dim,
+        rotary_dim=req.rotary_dim,
+        patch_code=req.patch_code or ""
+    )
+    log_audit_action(
+        db,
+        user_id=current_user.sub,
+        role=current_user.roles[0] if current_user.roles else "user",
+        action="VERIFY_PATCH",
+        resource=resp.id,
+        details=f"Ran patch verification for {req.model_name}: {resp.passed_tests}/{resp.total_tests} passed"
+    )
     return resp
 
 

@@ -16,48 +16,21 @@ class LlmAdvisor:
         user_query: Optional[str]
     ) -> str:
         """Construct grounded prompt context from verified records."""
-        lines = [
-            "You are an AI/ML systems optimization advisor for large language models.",
-            "Analyze the following verified execution records and provide actionable advice.",
-            ""
-        ]
-
+        lines = ["AI/ML systems optimization advisor for large language models.", "Verified telemetry:"]
         if plan:
-            lines.extend([
-                "### Verified Inference Plan:",
-                f"- Model ID: {plan.model_id}",
-                f"- Hardware ID: {plan.hardware_id}",
-                f"- Quantization: {plan.quantization}",
-                f"- Layers per chunk: {plan.layers_per_chunk} (Total chunks: {plan.total_chunks})",
-                f"- Parameter VRAM: {plan.param_vram_mb} MB",
-                f"- Activation VRAM: {plan.activation_vram_mb} MB",
-                f"- KV Cache VRAM: {plan.kv_cache_vram_mb} MB",
-                f"- Total Peak VRAM: {plan.total_vram_mb} MB ({plan.vram_utilization_percent}% utilization)",
-                f"- Estimated throughput: {plan.est_tokens_per_sec} tokens/sec",
-                ""
-            ])
-
-        if benchmark:
-            lines.extend([
-                "### Verified Benchmark Run Execution:",
-                f"- Prompt tokens: {benchmark.prompt_tokens}, Output tokens: {benchmark.output_tokens}",
-                f"- Total execution time: {benchmark.total_time_ms} ms",
-                f"- Measured throughput: {benchmark.tokens_per_sec} tokens/sec",
-                f"- Peak VRAM: {benchmark.peak_vram_mb} MB",
-                f"- Disk Read time: {benchmark.disk_read_time_ms} ms",
-                f"- PCIe Transfer time: {benchmark.pcie_transfer_time_ms} ms",
-                f"- Compute time: {benchmark.compute_time_ms} ms",
-                ""
-            ])
-
-        if user_query:
-            lines.append(f"User Query: {user_query}")
-        else:
             lines.append(
-                "Task: Identify potential bottlenecks (disk I/O vs PCIe vs compute) and recommend "
-                "optimal layer chunk size adjustments or quantization trade-offs."
+                f"Plan: model={plan.model_id}, hw={plan.hardware_id}, quant={plan.quantization}, "
+                f"chunk_layers={plan.layers_per_chunk}, total_vram={plan.total_vram_mb}MB ({plan.vram_utilization_percent}%), "
+                f"est_tok_sec={plan.est_tokens_per_sec}"
             )
-
+        if benchmark:
+            lines.append(
+                f"Benchmark: prompt={benchmark.prompt_tokens}, output={benchmark.output_tokens}, "
+                f"time={benchmark.total_time_ms}ms, tok_sec={benchmark.tokens_per_sec}, "
+                f"peak_vram={benchmark.peak_vram_mb}MB, disk_read={benchmark.disk_read_time_ms}ms, "
+                f"pcie={benchmark.pcie_transfer_time_ms}ms, compute={benchmark.compute_time_ms}ms"
+            )
+        lines.append(f"Query: {user_query}" if user_query else "Task: Identify bottlenecks and recommend chunk size/quantization.")
         return "\n".join(lines)
 
     @classmethod
@@ -67,34 +40,27 @@ class LlmAdvisor:
         benchmark: Optional[BenchmarkRunRecord],
         user_query: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Request advisory from operator-configured LLM endpoint.
-        Falls back gracefully with deterministic heuristics if no API key is supplied.
-        """
+        """Request advisory from operator-configured LLM endpoint or deterministic heuristics."""
         grounded_prompt = cls.format_grounded_context(plan, benchmark, user_query)
 
-        # If no key is configured, return deterministic grounded heuristics
         if not settings.LLM_API_KEY:
             recommendations: List[str] = []
             if plan:
                 if plan.vram_utilization_percent < 50.0:
                     recommendations.append(
-                        f"Current VRAM utilization is only {plan.vram_utilization_percent}%. "
+                        f"Current VRAM utilization is {plan.vram_utilization_percent}%. "
                         "Increase layers per chunk (N-layer batching) to reduce disk I/O passes and increase throughput."
                     )
                 elif plan.vram_utilization_percent > 85.0:
                     recommendations.append(
-                        f"VRAM utilization is {plan.vram_utilization_percent}%, approaching safety thresholds. "
+                        f"VRAM utilization is {plan.vram_utilization_percent}%. "
                         "Keep layer chunk size bounded to avoid CUDA out-of-memory during long context expansions."
                     )
             if benchmark and benchmark.disk_read_time_ms > (benchmark.compute_time_ms * 2):
-                recommendations.append(
-                    "Disk read I/O is the primary bottleneck. Consider enabling layer prefetching "
-                    "or storing quantized 4-bit weights on an NVMe SSD."
-                )
+                recommendations.append("Disk read I/O is primary bottleneck. Consider layer prefetching or NVMe storage.")
 
             if not recommendations:
-                recommendations.append("Balanced configuration: layer chunking and transfer pipelines are operating within nominal thresholds.")
+                recommendations.append("Balanced configuration: layer chunking and transfer pipelines are nominal.")
 
             return {
                 "provider": "offline-deterministic-fallback",
@@ -102,92 +68,54 @@ class LlmAdvisor:
                 "is_grounded": True,
                 "advisory_label": "Deterministic Advisory (No external LLM key configured)",
                 "recommendations": recommendations,
-                "analysis_text": (
-                    "Deterministic analysis based on verified system telemetry: "
-                    "Disk and PCIe transfers dominate sequential execution. Increasing layers_per_chunk "
-                    "reduces total roundtrips when VRAM headroom allows."
-                ),
+                "analysis_text": "Deterministic analysis based on verified system telemetry: sequential transfers dominate execution.",
                 "hardware_assessment": "Nominal hardware headroom for current model specification."
             }
 
         provider = settings.LLM_PROVIDER.lower()
         model = settings.LLM_MODEL
-        timeout = httpx.Timeout(15.0, connect=5.0)
-
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=5.0)) as client:
                 if provider == "anthropic":
                     url = settings.LLM_BASE_URL or "https://api.anthropic.com/v1/messages"
-                    headers = {
-                        "x-api-key": settings.LLM_API_KEY,
-                        "anthropic-version": "2023-06-01",
-                        "content-type": "application/json"
-                    }
-                    body = {
-                        "model": model,
-                        "max_tokens": 1024,
-                        "messages": [{"role": "user", "content": grounded_prompt}]
-                    }
-                    resp = await client.post(url, headers=headers, json=body)
+                    resp = await client.post(
+                        url,
+                        headers={"x-api-key": settings.LLM_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                        json={"model": model, "max_tokens": 1024, "messages": [{"role": "user", "content": grounded_prompt}]}
+                    )
                     resp.raise_for_status()
-                    data = resp.json()
-                    raw_text = data.get("content", [{}])[0].get("text", "")
-
+                    raw_text = resp.json().get("content", [{}])[0].get("text", "")
                 elif provider == "gemini":
                     base = settings.LLM_BASE_URL or "https://generativelanguage.googleapis.com/v1beta"
-                    url = f"{base}/models/{model}:generateContent?key={settings.LLM_API_KEY}"
-                    body = {
-                        "contents": [{"parts": [{"text": grounded_prompt}]}]
-                    }
-                    resp = await client.post(url, json=body)
+                    resp = await client.post(
+                        f"{base}/models/{model}:generateContent?key={settings.LLM_API_KEY}",
+                        json={"contents": [{"parts": [{"text": grounded_prompt}]}]}
+                    )
                     resp.raise_for_status()
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    raw_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "") if candidates else ""
-
+                    cand = resp.json().get("candidates", [])
+                    raw_text = cand[0].get("content", {}).get("parts", [{}])[0].get("text", "") if cand else ""
                 else:
-                    # openai-compatible (including LiteLLM, Ollama, OpenRouter)
                     url = settings.LLM_BASE_URL or "https://api.openai.com/v1/chat/completions"
-                    headers = {
-                        "Authorization": f"Bearer {settings.LLM_API_KEY}",
-                        "Content-Type": "application/json"
-                    }
-                    body = {
-                        "model": model,
-                        "messages": [
-                            {"role": "system", "content": "You are a concise, factual AI/ML systems optimization advisor."},
-                            {"role": "user", "content": grounded_prompt}
-                        ],
-                        "max_tokens": 800,
-                        "temperature": 0.2
-                    }
-                    resp = await client.post(url, headers=headers, json=body)
+                    resp = await client.post(
+                        url,
+                        headers={"Authorization": f"Bearer {settings.LLM_API_KEY}", "Content-Type": "application/json"},
+                        json={"model": model, "messages": [{"role": "system", "content": "You are a concise AI/ML systems advisor."}, {"role": "user", "content": grounded_prompt}], "max_tokens": 800}
+                    )
                     resp.raise_for_status()
-                    data = resp.json()
-                    raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    raw_text = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
 
                 return {
-                    "provider": provider,
-                    "model": model,
-                    "is_grounded": True,
+                    "provider": provider, "model": model, "is_grounded": True,
                     "advisory_label": f"AI Advisory via {provider} ({model}) — Opt-in Advisory Only",
-                    "recommendations": [
-                        "Review I/O pipelining against GPU compute saturation.",
-                        "Evaluate 4-bit block-wise compression for 70B parameter deployments."
-                    ],
+                    "recommendations": ["Review I/O pipelining against GPU saturation.", "Evaluate 4-bit block compression."],
                     "analysis_text": raw_text.strip(),
                     "hardware_assessment": "Grounded assessment generated from verified telemetry."
                 }
-
         except Exception as exc:
-            # Clear provider error with redacted details (never leak API keys)
-            error_msg = f"LLM provider error ({provider}): {type(exc).__name__}"
             return {
-                "provider": provider,
-                "model": model,
-                "is_grounded": False,
+                "provider": provider, "model": model, "is_grounded": False,
                 "advisory_label": "Advisory Unavailable (Provider Communication Error)",
                 "recommendations": ["Check provider endpoint configuration, model identifier, and network connectivity."],
-                "analysis_text": error_msg,
+                "analysis_text": f"LLM provider error ({provider}): {type(exc).__name__}",
                 "hardware_assessment": "External advisory request failed; falling back to offline planner."
             }

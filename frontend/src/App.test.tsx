@@ -108,6 +108,23 @@ vi.mock('./services/api', () => {
         recommendations: ['Inject _is_stateful = False'],
         generated_patch: '# Patch: _is_stateful = False',
       }),
+      verifyPatch: vi.fn().mockResolvedValue({
+        id: 'verify-1',
+        target_model: 'Meta-Llama-3-70B-Instruct',
+        all_passed: true,
+        total_tests: 4,
+        passed_tests: 4,
+        failed_tests: 0,
+        results: [
+          {
+            name: 'GenerationMixin _is_stateful flag',
+            category: 'generation-runtime',
+            passed: true,
+            detail: 'Verified _is_stateful = False declaration protects GenerationMixin initialization.',
+          },
+        ],
+        verified_at: new Date().toISOString(),
+      }),
       getAuditLogs: vi.fn().mockResolvedValue([]),
     },
   };
@@ -175,4 +192,33 @@ describe('TensorLens Application Workflows', () => {
     fireEvent.click(screen.getByText('4. HF Compatibility & Patches'));
     expect(screen.getByText(/Hugging Face Compatibility & Patch Generator/i)).toBeInTheDocument();
   });
+
+  it('runs compatibility audit and executes patch verification test suite workflow', async () => {
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('4. HF Compatibility & Patches')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('4. HF Compatibility & Patches'));
+    const auditBtn = screen.getByText(/Audit Environment & Generate Patches/i);
+    fireEvent.click(auditBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Run Patch Verification Test Suite/i)).toBeInTheDocument();
+    });
+
+    const verifyBtn = screen.getByText(/Run Patch Verification Test Suite/i);
+    fireEvent.click(verifyBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Patch Verification Test Suite Results/i)).toBeInTheDocument();
+      expect(screen.getByText(/ALL CHECKS PASSED/i)).toBeInTheDocument();
+    });
+  });
 });
+

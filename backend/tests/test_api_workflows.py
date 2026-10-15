@@ -123,3 +123,21 @@ def test_compatibility_audit_endpoint(client, analyst_headers):
     assert data["target_model"] == "Llama-2-70B"
     assert len(data["issues"]) > 0
     assert len(data["recommendations"]) > 0
+
+
+def test_verify_compatibility_patch_endpoint(client, analyst_headers):
+    """Test verification suite API endpoint execution and response structure."""
+    payload = {
+        "model_name": "Llama-3-70B",
+        "transformers_version": "4.45.0",
+        "head_dim": 128,
+        "rotary_dim": 128,
+        "target_device": "cuda",
+    }
+    resp = client.post("/api/compatibility/verify", json=payload, headers=analyst_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["target_model"] == "Llama-3-70B"
+    assert data["all_passed"] is True
+    assert data["total_tests"] == 4
+    assert len(data["results"]) == 4

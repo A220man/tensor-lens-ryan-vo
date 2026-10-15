@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CompatibilityAudit } from '../types';
+import { CompatibilityAudit, PatchVerificationResponse } from '../types';
 import { api } from '../services/api';
 
 export const CompatibilityDiagnostics: React.FC = () => {
@@ -11,6 +11,8 @@ export const CompatibilityDiagnostics: React.FC = () => {
   const [rotaryDim, setRotaryDim] = useState<number>(128);
   const [auditing, setAuditing] = useState<boolean>(false);
   const [auditResult, setAuditResult] = useState<CompatibilityAudit | null>(null);
+  const [verifying, setVerifying] = useState<boolean>(false);
+  const [verifyResult, setVerifyResult] = useState<PatchVerificationResponse | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,10 +29,31 @@ export const CompatibilityDiagnostics: React.FC = () => {
         rotary_dim: rotaryDim,
       });
       setAuditResult(res);
+      setVerifyResult(null);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setAuditing(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    setError(null);
+    try {
+      const res = await api.verifyPatch({
+        model_name: modelName,
+        transformers_version: transformersVersion,
+        head_dim: headDim,
+        rotary_dim: rotaryDim,
+        target_device: targetDevice,
+        patch_code: auditResult?.generated_patch,
+      });
+      setVerifyResult(res);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -185,9 +208,43 @@ export const CompatibilityDiagnostics: React.FC = () => {
             <pre className="code-block">
               <code>{auditResult.generated_patch}</code>
             </pre>
+            <div style={{ marginTop: '1rem' }}>
+              <button
+                onClick={handleVerify}
+                disabled={verifying}
+                className="btn btn-secondary"
+              >
+                {verifying ? 'Executing Verification Suite...' : 'Run Patch Verification Test Suite'}
+              </button>
+            </div>
           </div>
+
+          {verifyResult && (
+            <div className="verification-results-box" style={{ marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h4 className="box-title">Patch Verification Test Suite Results</h4>
+                <span className={`badge ${verifyResult.all_passed ? 'badge-success' : 'badge-danger'}`} style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>
+                  {verifyResult.all_passed ? 'ALL CHECKS PASSED' : 'CHECK FAILURES'} ({verifyResult.passed_tests}/{verifyResult.total_tests})
+                </span>
+              </div>
+              <div className="checks-grid">
+                {verifyResult.results.map((t, idx) => (
+                  <div key={idx} className={`check-card ${t.passed ? 'pass' : 'fail'}`}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <span className="check-title">{t.name}</span>
+                      <span className={`status-pill ${t.passed ? 'pass' : 'fail'}`} style={{ padding: '0.1rem 0.4rem', fontSize: '0.7rem' }}>
+                        {t.passed ? 'PASS' : 'FAIL'}
+                      </span>
+                    </div>
+                    <span className="check-status">{t.detail}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
+
