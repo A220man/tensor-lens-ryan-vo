@@ -205,8 +205,22 @@ def calculate_plan(
 
     plan_id = f"plan-{int(time.time() * 1000)}"
     plan_record = InferencePlanRecord(
-        id=plan_id, model_id=model.id, hardware_id=hardware.id, quantization=req.quantization,
-        batch_size=req.batch_size, seq_len=req.seq_len, **plan_metrics
+        id=plan_id,
+        model_id=model.id,
+        hardware_id=hardware.id,
+        quantization=req.quantization,
+        batch_size=req.batch_size,
+        seq_len=req.seq_len,
+        layers_per_chunk=plan_metrics["layers_per_chunk"],
+        total_chunks=plan_metrics["total_chunks"],
+        param_vram_mb=plan_metrics["param_vram_mb"],
+        activation_vram_mb=plan_metrics["activation_vram_mb"],
+        kv_cache_vram_mb=plan_metrics["kv_cache_vram_mb"],
+        total_vram_mb=plan_metrics["total_vram_mb"],
+        vram_utilization_percent=plan_metrics["vram_utilization_percent"],
+        est_prefill_sec=plan_metrics["est_prefill_sec"],
+        est_generation_sec=plan_metrics["est_generation_sec"],
+        est_tokens_per_sec=plan_metrics["est_tokens_per_sec"],
     )
     db.add(plan_record)
     db.commit()
