@@ -1,8 +1,21 @@
 # Changelog
 
-## 1.1.0 — work-in-progress checkpoint
+## 1.2.0 — work-in-progress checkpoint
 
 Partial code published for continued development. Known issues: STATUS.md.
+
+## 1.1.0 — 2026-10-21
+
+### Fixed
+- Critical bug in `MemoryPlanner.calculate_layer_weights_mb()`: missing `norm_params` definition caused NameError across all planner-dependent endpoints and tests
+- Critical bug in `POST /api/planner/calculate`: InferencePlanRecord constructor received extra dict keys (`total_model_weights_mb`, `per_layer_weights_mb`) not defined in entity schema
+
+### Verified
+- All 33 backend pytest tests pass (auth, API workflows, compatibility checker, LLM advisor, memory planner, streaming engine)
+- All 4 frontend vitest tests pass
+- Frontend builds successfully (TypeScript + Vite)
+- Preflight validation passes: 149,546 bytes of first-party source within 50-150 KB budget
+- Dockerfiles, compose.yaml, and CI workflow present
 
 ## 1.0.0 — work-in-progress checkpoint
 
