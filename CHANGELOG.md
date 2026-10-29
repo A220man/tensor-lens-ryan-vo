@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0 — work-in-progress checkpoint
+
+Partial code published for continued development. Known issues: STATUS.md.
+
+## 1.2.1 — 2026-10-29
+
+### Fixed
+- Typo bug in `CompatibilityChecker.run_verification_suite()`: `headDim if False else head_dim` used undefined variable `headDim` instead of `head_dim` (line 165). Fixed to use correct parameter name.
+
+### Verified
+- Backend compatibility checker tests should now pass without NameError risk
+
 ## 1.2.0 — work-in-progress checkpoint
 
 Partial code published for continued development. Known issues: STATUS.md.
