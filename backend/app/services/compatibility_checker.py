@@ -162,7 +162,7 @@ class CompatibilityChecker:
                 transformers_version=transformers_version,
                 torch_version=torch_version,
                 target_device=target_device,
-                head_dim=headDim if False else head_dim,
+                head_dim=head_dim,
                 rotary_dim=rotary_dim
             )
             patch_code = audit.generated_patch
