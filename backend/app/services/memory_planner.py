@@ -120,16 +120,20 @@ class MemoryPlanner:
         if manual_chunk_size and manual_chunk_size > 0:
             n_layers = min(manual_chunk_size, model.num_layers)
         else:
-            # Iteratively solve for maximum N where:
+            # Binary search for maximum N where:
             # (N * per_layer_weights_mb) + activation_mb(N) <= available_vram_mb
+            # Monotonic property: if N fits, all smaller N also fit
+            lo, hi = 1, model.num_layers
             best_n = 1
-            for n in range(1, model.num_layers + 1):
-                chunk_act = cls.calculate_activation_mb(model, batch_size, seq_len, n)
-                chunk_param = n * per_layer_weights_mb
+            while lo <= hi:
+                mid = (lo + hi) // 2
+                chunk_act = cls.calculate_activation_mb(model, batch_size, seq_len, mid)
+                chunk_param = mid * per_layer_weights_mb
                 if (chunk_param + chunk_act) <= available_vram_mb:
-                    best_n = n
+                    best_n = mid
+                    lo = mid + 1
                 else:
-                    break
+                    hi = mid - 1
             n_layers = best_n
 
         param_vram_mb = round(n_layers * per_layer_weights_mb, 2)

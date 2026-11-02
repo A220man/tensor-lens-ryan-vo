@@ -1,9 +1,15 @@
 # Changelog
 
-## 1.3.0 — work-in-progress checkpoint
+## 1.4.0 — work-in-progress checkpoint
 
 Partial code published for continued development. Known issues: STATUS.md.
 
+## 1.3.0 — work-in-progress checkpoint
+
+### Improved
+- Optimized `MemoryPlanner.solve_optimal_chunk_size()` to use binary search (O(log n)) instead of linear search (O(n)) for finding maximum layers per chunk, maintaining identical results with better algorithmic complexity.
+
+Partial code published for continued development. Known issues: STATUS.md.
 ## 1.2.1 — 2026-10-29
 
 ### Fixed
