@@ -41,3 +41,6 @@ htmlcov/
 *.sqlite-shm
 *.sqlite3-wal
 *.sqlite3-shm
+.turbo/
+.env.*.local
+**/data/media/
