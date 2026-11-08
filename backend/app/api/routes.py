@@ -15,6 +15,7 @@ from app.models.entities import (
     InferencePlanRecord,
     BenchmarkRunRecord,
     AuditLogRecord,
+    CompatibilityAuditRecord,
 )
 from app.models.schemas import (
     HardwareProfileCreate,
@@ -41,7 +42,7 @@ from app.services.memory_planner import MemoryPlanner
 from app.services.streaming_engine import LayerStreamingEngine
 from app.services.compatibility_checker import CompatibilityChecker
 from app.services.llm_advisor import LlmAdvisor
-from app.services.storage import log_audit_action
+from app.services.storage import log_audit_action, save_compatibility_audit, list_compatibility_audits
 
 api_router = APIRouter(prefix="/api")
 
@@ -363,6 +364,7 @@ def export_benchmarks(
 @api_router.post("/compatibility/audit", response_model=CompatibilityAuditResponse)
 def audit_compatibility(
     req: CompatibilityAuditRequest,
+    db: Session = Depends(get_db),
     current_user: UserPrincipal = Depends(get_current_user)
 ) -> CompatibilityAuditResponse:
     """
@@ -377,7 +379,22 @@ def audit_compatibility(
         head_dim=req.head_dim,
         rotary_dim=req.rotary_dim,
     )
-    resp.created_at = datetime.now(timezone.utc)
+    # Persist audit result to database
+    save_compatibility_audit(
+        db=db,
+        model_name=req.model_name,
+        transformers_version=req.transformers_version,
+        torch_version=req.torch_version,
+        issues=resp.issues,
+        recommendations=resp.recommendations,
+        generated_patch=resp.generated_patch,
+        has_stateful_attribute=resp.has_stateful_attribute,
+        dynamic_cache_compatible=resp.dynamic_cache_compatible,
+        rope_dimension_aligned=resp.rope_dimension_aligned,
+        device_compatible=resp.device_compatible,
+        audit_id=resp.id,
+    )
+    
     return resp
 
 
@@ -404,7 +421,33 @@ def verify_compatibility_patch(
         resource=resp.id,
         details=f"Ran patch verification for {req.model_name}: {resp.passed_tests}/{resp.total_tests} passed"
     )
+
     return resp
+@api_router.get("/compatibility/audits", response_model=List[CompatibilityAuditResponse])
+def list_compatibility_audits(
+    db: Session = Depends(get_db),
+    current_user: UserPrincipal = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=200)
+) -> List[CompatibilityAuditResponse]:
+    """Retrieve compatibility audit history."""
+    audits = list_compatibility_audits(db, user_id=current_user.sub, limit=limit)
+    return [CompatibilityAuditResponse(
+        id=a.id,
+        model_name=a.model_name,
+        transformers_version=a.transformers_version,
+        torch_version=a.torch_version,
+        target_device=a.target_device,
+        head_dim=a.head_dim,
+        rotary_dim=a.rotary_dim,
+        issues=a.issues.split("\n") if a.issues else [],
+        recommendations=a.recommendations.split("\n") if a.recommendations else [],
+        generated_patch=a.generated_patch,
+        has_stateful_attribute=a.has_stateful_attribute,
+        dynamic_cache_compatible=a.dynamic_cache_compatible,
+        rope_dimension_aligned=a.rope_dimension_aligned,
+        device_compatible=a.device_compatible,
+        created_at=a.created_at,
+    ) for a in audits]
 
 
 # --- LLM Advisory ---

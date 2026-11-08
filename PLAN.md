@@ -24,12 +24,29 @@ Tests: `backend/tests/test_memory_planner.py`, `backend/tests/test_streaming_eng
 
 ### hf-runtime-diagnostics — Hugging Face Compatibility Diagnostics and DynamicCache Patch Generator
 
-Status: planned
+Status: done
 
 Acceptance:
 - Analyze installed transformers environment for known breaking changes like _is_stateful and DynamicCache indexing
 - Generate automated patch shims for RoPE rotary embeddings and layer offloading hooks
 - Provide verification test suite for patched model definitions
+
+Implementation: `backend/app/services/compatibility_checker.py`, `backend/app/api/routes.py (endpoints: /api/compatibility/audit, /api/compatibility/verify)`, `frontend/src/components/CompatibilityDiagnostics.tsx`, `backend/app/models/entities.py (CompatibilityAuditRecord)`, `backend/app/models/schemas.py (CompatibilityAuditRequest/Response, PatchVerificationRequest/Response)`
+
+Tests: `backend/tests/test_compatibility_checker.py`
+
+### llm-advisor — LLM-Powered Optimization Advisory Grounded in Benchmark Telemetry
+
+Status: done
+
+Acceptance:
+- Generate opt-in advisory analysis strictly grounded in verified benchmark and plan records
+- Provider-agnostic adapter supporting OpenAI-compatible endpoints and deterministic offline heuristics
+- Integrate advisory access from Planner and Benchmarks tabs via modal dialog
+
+Implementation: `backend/app/services/llm_advisor.py`, `backend/app/api/routes.py (endpoint: /api/advisor/analyze)`, `frontend/src/components/LlmAdvisorModal.tsx`, `backend/app/models/schemas.py (AdvisorAnalysisRequest/Response)`
+
+Tests: `backend/tests/test_llm_advisor.py`
 
 ### multi-gpu-heterogeneous-scheduler — Heterogeneous Multi-GPU Pipeline Scheduler
 
