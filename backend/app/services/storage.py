@@ -8,6 +8,7 @@ from app.models.entities import (
     InferencePlanRecord,
     BenchmarkRunRecord,
     AuditLogRecord,
+    CompatibilityAuditRecord,
 )
 
 
@@ -70,4 +71,48 @@ def log_audit_action(
         details=details,
         timestamp=now,
     ))
+def save_compatibility_audit(
+    db: Session,
+    model_name: str,
+    transformers_version: str,
+    torch_version: str,
+    issues: List[str],
+    recommendations: List[str],
+    generated_patch: str,
+    has_stateful_attribute: bool,
+    dynamic_cache_compatible: bool,
+    rope_dimension_aligned: bool,
+    device_compatible: bool,
+    audit_id: str,
+) -> CompatibilityAuditRecord:
+    """Persist compatibility audit result to database."""
+    now = datetime.now(timezone.utc)
+    record = CompatibilityAuditRecord(
+        id=audit_id,
+        target_model=model_name,
+        transformers_version=transformers_version,
+        torch_version=torch_version,
+        has_stateful_attribute=has_stateful_attribute,
+        dynamic_cache_compatible=dynamic_cache_compatible,
+        rope_dimension_aligned=rope_dimension_aligned,
+        issues_summary="\n".join(issues),
+        patch_recommendation=generated_patch,
+        created_at=now,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def list_compatibility_audits(
+    db: Session,
+    user_id: Optional[str] = None,
+    limit: int = 50,
+) -> List[CompatibilityAuditRecord]:
+    """Retrieve compatibility audit history."""
+    query = db.query(CompatibilityAuditRecord).order_by(CompatibilityAuditRecord.created_at.desc())
+    if user_id:
+        query = query.filter(CompatibilityAuditRecord.user_id == user_id)
+    return query.limit(limit).all()
     db.commit()

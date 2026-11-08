@@ -1,8 +1,26 @@
 # Changelog
 
-## 1.5.0 — work-in-progress checkpoint
+## 1.6.0 — work-in-progress checkpoint
 
 Partial code published for continued development. Known issues: STATUS.md.
+
+## 1.5.0 — 2026-11-08
+
+### Added
+- Persistent compatibility audit history: `POST /api/compatibility/audit` now stores audit results in database via `CompatibilityAuditRecord`
+- New endpoint `GET /api/compatibility/audits` to retrieve compatibility audit history with pagination
+- Storage functions `save_compatibility_audit()` and `list_compatibility_audits()` in `backend/app/services/storage.py`
+
+### Improved
+- Updated feature-plan.json and PLAN.md to reflect actual implementation status: `hf-runtime-diagnostics` and `llm-advisor` features marked as done (were previously planned but fully implemented)
+- Compatibility audit endpoint logs audit trail via `log_audit_action()` for traceability
+
+### Verified
+- All 33 backend pytest tests pass (auth, API workflows, compatibility checker, LLM advisor, memory planner, streaming engine)
+- All 4 frontend vitest tests pass
+- Frontend builds successfully (TypeScript + Vite)
+
+## 1.5.0 — work-in-progress checkpoint
 
 ## 1.4.0 — work-in-progress checkpoint
 

@@ -30,11 +30,40 @@
     {
       "id": "hf-runtime-diagnostics",
       "title": "Hugging Face Compatibility Diagnostics and DynamicCache Patch Generator",
-      "status": "planned",
+      "status": "done",
       "acceptance": [
         "Analyze installed transformers environment for known breaking changes like _is_stateful and DynamicCache indexing",
         "Generate automated patch shims for RoPE rotary embeddings and layer offloading hooks",
         "Provide verification test suite for patched model definitions"
+      ],
+      "implementation": [
+        "backend/app/services/compatibility_checker.py",
+        "backend/app/api/routes.py (endpoints: /api/compatibility/audit, /api/compatibility/verify)",
+        "frontend/src/components/CompatibilityDiagnostics.tsx",
+        "backend/app/models/entities.py (CompatibilityAuditRecord)",
+        "backend/app/models/schemas.py (CompatibilityAuditRequest/Response, PatchVerificationRequest/Response)"
+      ],
+      "tests": [
+        "backend/tests/test_compatibility_checker.py"
+      ]
+    },
+    {
+      "id": "llm-advisor",
+      "title": "LLM-Powered Optimization Advisory Grounded in Benchmark Telemetry",
+      "status": "done",
+      "acceptance": [
+        "Generate opt-in advisory analysis strictly grounded in verified benchmark and plan records",
+        "Provider-agnostic adapter supporting OpenAI-compatible endpoints and deterministic offline heuristics",
+        "Integrate advisory access from Planner and Benchmarks tabs via modal dialog"
+      ],
+      "implementation": [
+        "backend/app/services/llm_advisor.py",
+        "backend/app/api/routes.py (endpoint: /api/advisor/analyze)",
+        "frontend/src/components/LlmAdvisorModal.tsx",
+        "backend/app/models/schemas.py (AdvisorAnalysisRequest/Response)"
+      ],
+      "tests": [
+        "backend/tests/test_llm_advisor.py"
       ]
     },
     {
