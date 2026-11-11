@@ -63,9 +63,10 @@ class MemoryPlanner:
         """
         KV cache size for all layers:
         2 (K and V) * num_layers * num_kv_heads * head_dim * bytes_per_element * batch_size * seq_len
+        Element bytes follow BYTES_PER_PARAM mapping (FP16=2, INT8≈1.05, INT4≈0.56).
         """
         head_dim = model.hidden_dim // model.num_heads
-        element_bytes = 1.0 if quantization.lower() in ("int8", "int4") else 2.0
+        element_bytes = BYTES_PER_PARAM.get(quantization.lower(), 2.0)
         total_elements = 2 * model.num_layers * model.num_kv_heads * head_dim * batch_size * seq_len
         kv_mb = (total_elements * element_bytes) / (1024 * 1024)
         return round(kv_mb, 2)
