@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.database import init_db, SessionLocal
 from app.services.storage import seed_defaults
 from app.api.routes import api_router
-
+from app.api.multi_gpu_scheduler_routes import multi_gpu_scheduler_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -18,7 +18,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     with SessionLocal() as db:
         seed_defaults(db)
     yield
-
 
 app = FastAPI(
     title="TensorLens API",
@@ -38,7 +37,7 @@ app.add_middleware(
 
 # Mount REST API router
 app.include_router(api_router)
-
+app.include_router(multi_gpu_scheduler_router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -47,7 +46,6 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An internal system error occurred. Telemetry has been logged."}
     )
-
 
 @app.get("/")
 def root_info() -> dict:
