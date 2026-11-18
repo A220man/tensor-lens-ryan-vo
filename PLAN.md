@@ -50,7 +50,7 @@ Tests: `backend/tests/test_llm_advisor.py`
 
 ### multi-gpu-heterogeneous-scheduler — Heterogeneous Multi-GPU Pipeline Scheduler
 
-Status: planned
+Status: in_progress
 
 Acceptance:
 - Distribute partitioned layers across asymmetric GPUs (e.g. K80 + T4 combinations)

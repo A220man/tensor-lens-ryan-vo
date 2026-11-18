@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -229,3 +229,16 @@ class TokenResponse(BaseSchema):
     token_type: str = "bearer"
     expires_in: int
     role: str
+
+
+class MultiGPUScheduleRequest(BaseSchema):
+    model_id: str
+    hardware_ids: List[str]
+    quantization: str = "int4"
+    batch_size: int = 1
+    seq_len: int = 512
+
+class MultiGPUScheduleResponse(BaseSchema):
+    assignments: Dict[str, List[int]]
+    total_layers_assigned: int
+    unassigned_layers: int

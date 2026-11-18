@@ -17,5 +17,6 @@
     "ollama"
   ],
   "summary": "Work in progress: tensor-lens-ryan-vo",
-  "status": "work-in-progress"
+  "status": "work-in-progress",
+  "version": "1.8.0"
 }

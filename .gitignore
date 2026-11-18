@@ -44,3 +44,4 @@ htmlcov/
 .turbo/
 .env.*.local
 **/data/media/
+.venv*/

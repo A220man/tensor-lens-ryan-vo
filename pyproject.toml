@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tensor-lens-ryan-vo"
-version = "1.0.0"
+version = "1.8.0"
 description = "Layer-streaming inference optimizer and memory profiler enabling large language model execution on memory-constrained GPUs"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -69,7 +69,7 @@
     {
       "id": "multi-gpu-heterogeneous-scheduler",
       "title": "Heterogeneous Multi-GPU Pipeline Scheduler",
-      "status": "planned",
+      "status": "in_progress",
       "acceptance": [
         "Distribute partitioned layers across asymmetric GPUs (e.g. K80 + T4 combinations)",
         "Schedule pipelined transfers across PCI-e and network interconnects",
