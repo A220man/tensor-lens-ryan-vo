@@ -17,14 +17,15 @@ class MultiGPUScheduler:
         seq_len: int = 512,
     ) -> Dict[str, List[int]]:
         """
-        Greedy assignment of model layers to GPUs based on their capacity.
+        Distribute model layers across heterogeneous GPUs based on VRAM capacity.
+        Uses proportional allocation: each GPU receives a share of layers
+        proportional to its available VRAM, ensuring all GPUs receive work
+        and total assigned layers equals model.num_layers.
         Returns a dict mapping hardware.id -> list of assigned layer indices.
         """
         # Compute maximum layers each GPU can hold
         hw_capacities: Dict[str, int] = {}
         for hw in hardware_list:
-            # Use manual_chunk_size = model.num_layers to let solve_optimal_chunk_size
-            # return the largest chunk size that fits into hw's VRAM.
             plan = MemoryPlanner.solve_optimal_chunk_size(
                 model=model,
                 hardware=hw,
@@ -36,22 +37,43 @@ class MultiGPUScheduler:
             max_layers = plan["layers_per_chunk"]
             hw_capacities[hw.id] = max_layers
 
-        # Sort GPUs by capacity (larger first) for better utilization
-        sorted_hw = sorted(hardware_list, key=lambda h: hw_capacities[h.id], reverse=True)
+        # Total VRAM capacity across all GPUs for proportional allocation
+        total_capacity = sum(hw_capacities.values()) or 1
 
+        # Proportional distribution: each GPU gets a share of layers
+        # proportional to its capacity, ensuring total = model.num_layers
         assignments: Dict[str, List[int]] = {}
         remaining_layers = model.num_layers
         next_layer = 0
-        for hw in sorted_hw:
-            max_layers = hw_capacities[hw.id]
-            assign = min(remaining_layers, max_layers)
-            if assign <= 0:
-                continue
-            layers = list(range(next_layer, next_layer + assign))
-            assignments[hw.id] = layers
-            remaining_layers -= assign
-            next_layer += assign
 
-        # Record unassigned layers (should be zero if total capacity >= model.num_layers)
-        # If not, we could optionally log or raise a warning.
+        for i, hw in enumerate(hardware_list):
+            # Proportional share for this GPU
+            proportional = int(hw_capacities[hw.id] / total_capacity * remaining_layers)
+
+            # Last GPU gets all remaining layers
+            if i == len(hardware_list) - 1:
+                assign = remaining_layers
+            else:
+                # Ensure at least 1 layer per GPU if we have layers remaining
+                # and this isn't the last GPU
+                assign = max(1, proportional) if proportional > 0 else 1
+                assign = min(assign, hw_capacities[hw.id], remaining_layers)
+
+            if assign > 0 and assign <= remaining_layers:
+                layers = list(range(next_layer, next_layer + assign))
+                assignments[hw.id] = layers
+                remaining_layers -= assign
+                next_layer += assign
+
+        # Safety: if any layers remain (e.g. from floor constraints),
+        # assign them to the last GPU
+        if remaining_layers > 0 and hardware_list:
+            last_hw = hardware_list[-1]
+            if last_hw.id not in assignments:
+                assignments[last_hw.id] = list(range(next_layer, next_layer + remaining_layers))
+            else:
+                assignments[last_hw.id] = list(
+                    range(next_layer, next_layer + remaining_layers)
+                )
+
         return assignments
