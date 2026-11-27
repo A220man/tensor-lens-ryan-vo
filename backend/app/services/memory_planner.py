@@ -125,7 +125,7 @@ class MemoryPlanner:
             # (N * per_layer_weights_mb) + activation_mb(N) <= available_vram_mb
             # Monotonic property: if N fits, all smaller N also fit
             lo, hi = 1, model.num_layers
-            best_n = 1
+            best_n = 0
             while lo <= hi:
                 mid = (lo + hi) // 2
                 chunk_act = cls.calculate_activation_mb(model, batch_size, seq_len, mid)

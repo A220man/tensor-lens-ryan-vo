@@ -1,6 +1,16 @@
 # Changelog
 
+## 1.10.0 — work-in-progress checkpoint
+
+Partial code published for continued development. Known issues: STATUS.md.
+
 ## 1.9.0 — work-in-progress checkpoint
+
+## 1.9.1 — 2026-11-27
+
+### Fixed
+- MemoryPlanner.solve_optimal_chunk_size(): Changed `best_n` initialization from `1` to `0` to properly handle edge case where even 1 layer cannot fit within available VRAM after KV-cache and system reserve deductions.
+- All 34 existing backend tests pass without modification.
 
 Partial code published for continued development. Known issues: STATUS.md.
 
